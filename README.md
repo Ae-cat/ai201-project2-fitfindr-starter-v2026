@@ -56,27 +56,29 @@
      The empty case isn't optional either — it's the thing your loop branches
      on, and if you don't decide it here you'll discover it as a crash in
      Milestone 5. -->
-
+    <!-- search_listings(description, size, max_price)  → list[dict]
+    suggest_outfit(new_item, wardrobe)             → str
+    create_fit_card(outfit, new_item)              → str -->
 ### `search_listings`
 
-- **What it does:**
-- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" -->
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Searches the clothing listings for items matching a description and optionally filters them by size and maximum price.
+- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" --> description (str), size (str or None), max_price (float or None)
+- **Returns:** A list of matching listing dictionaries, sorted with best matches first, each containing id, title, description, category, style_tags, size, condition, price, colors, brand, and platform. Size matches if the requested size equals one of the listing's size parts when split on `/`, spaces, and parentheses (case-insensitive), so `M` matches `S/M` and `M/L` but not `US 9` or `XL`.
+- **When it has nothing:** empty list []
 
 ### `suggest_outfit`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Uses the selected clothing item and the user's wardrobe to suggest one or two outfits.
+- **Inputs:** new_item (dict), wardrobe (dict)
+- **Returns:** A non-empty string containing one or two outfit suggestions.
+- **When it has nothing:** If `wardrobe["items"]` is empty, returns a non-empty string of general styling advice.
 
 ### `create_fit_card`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Creates a short caption (as if for a post) for the selected item and suggested outfit.
+- **Inputs:** outfit (str), new_item (dict)
+- **Returns:** A two-to-four sentence str caption that mentions the item, price, platform, and vibe
+- **When it has nothing:** Returns a descriptive message instead of crashing
 
 ---
 
@@ -93,7 +95,7 @@
      The grader checks your code against what you claim here, so the file and
      function have to be real. -->
 
-**Branch rule:**
+**Branch rule:** If search_listings returns an empty list, put a message in the session and stop. Otherwise, take the first result and go to suggest_outfit.
 
 **Where it lives:** `agent.py::run_agent`
 
