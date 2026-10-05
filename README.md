@@ -41,6 +41,7 @@
 
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
 
+FitFindr is a thrifting agent that uses three tools: search_listings, suggest_outfit, and create_fit_card. A user types what they want, for example "vintage graphic tee under $30, size M." The agent searches a file of secondhand listings, picks the best match, suggests one or two outfits that pair it with pieces from the user's wardrobe, and writes a short, post-like caption (a fit card). If the agent cannot find a match, it stops and returns a message telling the user what to change in their input instead of continuing.
 
 ---
 
@@ -63,7 +64,7 @@
 - **What it does:** Searches the clothing listings for items matching a description and optionally filters them by size and maximum price.
 - **Inputs:** <!-- name and type each: `max_price` (float), not "a price" --> description (str), size (str or None), max_price (float or None)
 - **Returns:** A list of matching listing dictionaries, sorted with best matches first, each containing id, title, description, category, style_tags, size, condition, price, colors, brand, and platform. Size matches if the requested size equals one of the listing's size parts when split on `/`, spaces, and parentheses (case-insensitive), so `M` matches `S/M` and `M/L` but not `US 9` or `XL`.
-- **When it has nothing:** empty list []
+- **When it has nothing:** An empty list `[]`.
 
 ### `suggest_outfit`
 
@@ -76,8 +77,8 @@
 
 - **What it does:** Creates a short caption (as if for a post) for the selected item and suggested outfit.
 - **Inputs:** outfit (str), new_item (dict)
-- **Returns:** A two-to-four sentence str caption that mentions the item, price, platform, and vibe
-- **When it has nothing:** Returns a descriptive message instead of crashing
+- **Returns:** A two-to-four sentence str caption that mentions the item, price, platform, and vibe.
+- **When it has nothing:** Returns a descriptive message instead of crashing.
 
 ---
 
@@ -171,17 +172,17 @@ Note: with the cache on, three runs of the fit card printed word-for-word identi
      "I gave Claude my search_listings spec. It returned None on no match
      instead of an empty list, so I changed it" is the level we want. -->
 
-**Moment 1**
+**Moment 1: the search_listings code**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I wrote my own version of `search_listings` and gave it to Claude, asking it to review and revise it so it was simpler and more efficient.
+- *What came back:* Claude rewrote it. My draft had a syntax error (`size_match = True:`), compared `listing.size` instead of `listing["size"]`, and ended with `return []`, so it could never return results. The rewrite matched size by whole word (so "M" matches "S/M" but not "US 9"), scored keywords across the title, tags, colors and category, and returned a real list.
+- *What I changed:* I compared it with my original idea and kept Claude's version because it matched the rules in my Tool Inventory. I then asked Claude to make it more beginner friendly, and it was rewritten with plain loops and step-by-step comments. This way I could properly learn from the errors I made and how I can make my code more efficient in the future.
 
-**Moment 2**
+**Moment 2: my criteria reasoning**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I wrote my acceptance criteria and my reasoning for each one, and asked ChatGPT what could be improved.
+- *What came back:* It gave me three brand-new criteria instead of feedback on mine. I then asked, "from the criterion I have written what can I improve. Do not change my base idea but provide bullet point inputs," and it suggested clearer wording and examples to support my reasoning.
+- *What I changed:* I kept my own criteria and applied the suggestions to the wording, for example adding that a dress counts as a full outfit and does not need pairing in criterion 5.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
