@@ -42,7 +42,6 @@
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
 
 
-
 ---
 
 ## Tool Inventory
@@ -99,9 +98,9 @@
 
 **Where it lives:** `agent.py::run_agent`
 
-**How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
+**How the query is parsed:** Regex (`parse_query` in `agent.py`). It pulls out a price ("under $30", "below 40"), a size ("size M"), and treats whatever text is left as the description.
 
-**What moves through the session:** <!-- which fields, in what order -->
+**What moves through the session:** In order: `query` -> `parsed` (description, size, max_price) -> `search_results` -> `selected_item` (the first result) -> `outfit_suggestion` -> `fit_card`. `wardrobe` is set at the start. `error` stays None unless the search is empty, in which case it holds the message and the later fields stay None.
 
 ---
 
@@ -115,8 +114,27 @@
 **One full query**
 
 ```
-$ python app.py ask '...'
+$ python app.py ask 'vintage graphic tee under $30, size M'
 
+  Found:    Y2K Baby Tee — Butterfly Print — $18.0 on depop
+
+  Outfit:   **Outfit 1:**
+- Y2K Baby Tee — Butterfly Print
+- Baggy straight-leg jeans
+- Chunky white sneakers
+- Black crossbody bag
+
+**Outfit 2:**
+- Y2K Baby Tee — Butterfly Print
+- Wide-leg khaki trousers
+- Black combat boots
+- Vintage black denim jacket
+
+  Fit card: Just scored this Y2K baby tee with the cutest butterfly print on depop for only $18.00! It’s giving major streetwear energy, and I am so ready to style it with baggy jeans or wide-leg trousers. Can't wait for this package to arrive!
+
+$ python app.py ask 'designer ballgown size XXS under $5'
+
+  No listings matched 'designer ballgown'. Try one of these: raise your price limit (currently $5); remove the size filter (currently size XXS); use fewer or simpler keywords (for example 'tee' instead of a long description).
 ```
 
 **The three tools, tested one at a time**

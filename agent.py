@@ -13,6 +13,8 @@ Build and test your three tools in `tools.py` first. Then come here.
     python agent.py          runs both example paths below
 """
 
+import re
+
 import config
 import trace
 from tools import search_listings, suggest_outfit, create_fit_card
@@ -107,9 +109,101 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     """
     session = new_session(query, wardrobe)
 
-    # TODO: delete these two lines and build the loop.
-    session["error"] = "The planning loop isn't built yet — see the TODO in agent.py."
+    # The loop always knows what step is next. After each step it looks at
+    # what came back (in the session) and decides which step comes after.
+    next_step = "search"
+    count = 0
+
+    while next_step != "done":
+        count += 1
+        trace.check_iterations(count)  # stop condition: raises if we loop too long
+
+        if next_step == "search":
+            # Parse the query into description / size / max_price.
+            session["parsed"] = parse_query(session["query"])
+            parsed = session["parsed"]
+
+            # Run the search and save the results in the session.
+            session["search_results"] = search_listings(
+                parsed["description"], parsed["size"], parsed["max_price"]
+            )
+
+            # ── THE BRANCH ──────────────────────────────────────────────
+            # Nothing came back: say what to change, and stop here.
+            # suggest_outfit is never called with nothing.
+            if len(session["search_results"]) == 0:
+                session["error"] = no_results_message(parsed)
+                next_step = "done"
+            else:
+                # Something came back: pick the first result, go to outfit.
+                session["selected_item"] = session["search_results"][0]
+                next_step = "outfit"
+
+        elif next_step == "outfit":
+            # Read the item back OUT of the session (not from a local variable).
+            session["outfit_suggestion"] = suggest_outfit(
+                session["selected_item"], session["wardrobe"]
+            )
+            next_step = "fit_card"
+
+        elif next_step == "fit_card":
+            session["fit_card"] = create_fit_card(
+                session["outfit_suggestion"], session["selected_item"]
+            )
+            next_step = "done"
+
     return session
+
+
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+def parse_query(query: str) -> dict:
+    """
+    Pull a description, a size, and a max price out of plain text using regex.
+
+    "vintage graphic tee under $30, size M" ->
+        {"description": "vintage graphic tee", "size": "M", "max_price": 30.0}
+    """
+    text = query
+    size = None
+    max_price = None
+
+    # Price: "under $30", "below 30", "max $25", "less than $40", or just "$30".
+    price_match = re.search(
+        r"(?:under|below|less than|max|up to|<)?\s*\$\s*(\d+(?:\.\d+)?)"
+        r"|(?:under|below|less than|max|up to)\s+(\d+(?:\.\d+)?)",
+        text,
+        re.IGNORECASE,
+    )
+    if price_match:
+        max_price = float(price_match.group(1) or price_match.group(2))
+        text = text.replace(price_match.group(0), " ")
+
+    # Size: "size M", "size: XL", "size US 9" (takes the next word after "size").
+    size_match = re.search(r"\bsize[:\s]+([A-Za-z0-9]+)", text, re.IGNORECASE)
+    if size_match:
+        size = size_match.group(1)
+        text = text.replace(size_match.group(0), " ")
+
+    # What's left is the description. Tidy up commas and extra spaces.
+    description = re.sub(r"[,]+", " ", text)
+    description = re.sub(r"\s+", " ", description).strip()
+
+    return {"description": description, "size": size, "max_price": max_price}
+
+
+def no_results_message(parsed: dict) -> str:
+    """A message that tells the user what they could change."""
+    tips = []
+    if parsed["max_price"] is not None:
+        tips.append(f"raise your price limit (currently ${parsed['max_price']:.0f})")
+    if parsed["size"] is not None:
+        tips.append(f"remove the size filter (currently size {parsed['size']})")
+    tips.append("use fewer or simpler keywords (for example 'tee' instead of a long description)")
+    return (
+        f"No listings matched '{parsed['description']}'. Try one of these: "
+        + "; ".join(tips) + "."
+    )
 
 
 # ── running it directly ───────────────────────────────────────────────────────
