@@ -122,19 +122,25 @@ $ python app.py ask '...'
 **The three tools, tested one at a time**
 
 ```
-$ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
-
+$ python -c "from tools import search_listings; r = search_listings('graphic tee', max_price=30); print(len(r), 'results:', [x['title'] for x in r])"
+7 results: ['Y2K Baby Tee — Butterfly Print', 'Graphic Tee — 2003 Tour Bootleg Style', 'Mesh Long-Sleeve Top — Black', 'Vintage Band Tee — Faded Grey', 'Low-Rise Cargo Pants — Khaki', 'Oversized Crewneck Sweatshirt — Vintage Navy', 'Vintage Graphic Hoodie — Faded Black']
 ```
 
 ```
-$ python -c "from tools import suggest_outfit; ..."
+$ python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
+**Outfit 1 (Casual Streetwear):**
+Pair the Vintage Levi's 501 Jeans with the **White ribbed tank top**, the **Vintage black denim jacket**, and the **Chunky white sneakers**.
 
+**Outfit 2 (Relaxed Everyday):**
+Pair the Vintage Levi's 501 Jeans with the **Oversized grey crewneck sweatshirt**, the **Brown leather belt**, and the **Black combat boots**.
 ```
 
 ```
-$ python -c "from tools import create_fit_card; ..."
-
+$ AI201_CACHE=0 python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
+Found my new holy grail pair of vintage Levi's 501 jeans on depop today for just $38. I'm obsessed with the wash and can't wait to style them with my favorite white sneakers. Such a win!
 ```
+
+Note: with the cache on, three runs of the fit card printed word-for-word identical text. With `AI201_CACHE=0`, three runs gave three different captions, so the repeats came from the cache, not a tool bug.
 
 ---
 

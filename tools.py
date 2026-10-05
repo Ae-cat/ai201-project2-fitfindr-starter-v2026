@@ -20,7 +20,9 @@ That last line is what your loop branches on. "Returns a list" earns nothing —
 the description has to say what is *in* the list.
 """
 
-import config  # noqa: F401 — you'll use this in search_listings
+import re
+
+import config
 from generate import generate
 from utils.data_loader import load_listings
 
@@ -78,8 +80,68 @@ def search_listings(
     Test it from a terminal before you move on:
         python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
     """
-    # TODO: replace this with your implementation
-    return []
+    # Step 1: load all the listings and get ready to collect matches.
+    listings = load_listings()
+    matches = []  # will hold (score, listing) pairs
+
+    # Step 2: turn the description into a list of lowercase words,
+    # skipping filler words like "a" or "the" that match almost everything.
+    filler_words = ["a", "an", "the", "for", "and", "or", "in", "on",
+                    "with", "of", "to", "me", "i", "want", "looking"]
+    description_words = []
+    for word in re.findall(r"[a-z0-9']+", description.lower()):
+        if word not in filler_words:
+            description_words.append(word)
+
+    # Step 3: look at each listing one at a time.
+    for listing in listings:
+
+        # Price check: skip listings that cost more than max_price.
+        if max_price is not None and listing["price"] > max_price:
+            continue
+
+        # Size check: split the listing's size into parts, so "S/M"
+        # becomes ["s", "m"] and "XL (oversized)" becomes ["xl", "oversized"].
+        # The requested size must equal one whole part, so "M" matches
+        # "S/M" but not "US 9" or "XL".
+        if size is not None:
+            size_parts = re.split(r"[/\s()]+", listing["size"].lower())
+            if size.strip().lower() not in size_parts:
+                continue
+
+        # Scoring: put all the listing's searchable text in one string,
+        # then add 1 point for each search word that appears in it.
+        searchable_text = (
+            listing["title"] + " "
+            + listing["description"] + " "
+            + " ".join(listing["style_tags"]) + " "
+            + " ".join(listing["colors"]) + " "
+            + listing["category"]
+        ).lower()
+        searchable_words = re.findall(r"[a-z0-9']+", searchable_text)
+
+        score = 0
+        for word in description_words:
+            for listing_word in searchable_words:
+                # startswith lets "tee" also match "tees"
+                if listing_word.startswith(word):
+                    score += 1
+                    break  # count each search word only once
+
+        # No search words matched, so skip this listing.
+        if score == 0:
+            continue
+
+        matches.append((score, listing))
+
+    # Step 4: sort so the highest score comes first.
+    matches.sort(key=lambda pair: pair[0], reverse=True)
+
+    # Step 5: keep only the listings (not the scores), up to the limit.
+    results = []
+    for score, listing in matches[:config.SEARCH_RESULT_LIMIT]:
+        results.append(listing)
+    return results
 
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
@@ -112,8 +174,36 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    item_text = (
+        f"{new_item.get('title')} ({new_item.get('category')}), "
+        f"colors: {', '.join(new_item.get('colors', []))}, "
+        f"style: {', '.join(new_item.get('style_tags', []))}"
+    )
+    items = (wardrobe or {}).get("items") or []
+
+    if not items:
+        prompt = (
+            f"I'm thinking of buying this secondhand piece: {item_text}.\n"
+            "I haven't shared my wardrobe. Give one or two general outfit "
+            "ideas for it, naming the kinds of pieces (e.g. 'straight-leg "
+            "jeans and white sneakers') that would pair well with it."
+        )
+    else:
+        wardrobe_text = "\n".join(
+            f"- {w['name']} ({w['category']}; {', '.join(w.get('colors', []))})"
+            for w in items
+        )
+        prompt = (
+            f"I'm thinking of buying this secondhand piece: {item_text}.\n\n"
+            f"Here is my wardrobe:\n{wardrobe_text}\n\n"
+            "Suggest one or two outfits that pair the new piece with items "
+            "from my wardrobe, naming those wardrobe pieces exactly. Pair it "
+            "with pieces from a different category (e.g. a top with a bottom "
+            "and shoes), not two of the same kind. Keep it short."
+        )
+
+    result = generate(prompt)
+    return result or "No outfit suggestion came back — try again."
 
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
@@ -152,5 +242,20 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    if not outfit or not outfit.strip():
+        return "Can't write a fit card without an outfit suggestion."
+
+    prompt = (
+        "Write a short social media caption (2 to 4 sentences) for a thrift "
+        "find, the way a real person would post it, not a product description. "
+        "Write it as someone who just BOUGHT or found this piece on the "
+        "platform (not someone selling it).\n"
+        f"Item: {new_item.get('title')}\n"
+        f"Price: ${new_item.get('price'):.2f}\n"
+        f"Platform: {new_item.get('platform')}\n"
+        f"Outfit idea: {outfit}\n\n"
+        "Mention the item, its price, and the platform once each, and include "
+        "one specific style word for the vibe (like vintage, streetwear, "
+        "cottagecore). Return only the caption."
+    )
+    return generate(prompt)
