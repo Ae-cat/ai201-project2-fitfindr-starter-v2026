@@ -266,19 +266,37 @@ that produced it:
 **Happy path**
 
 ```
-
+$ python app.py ask 'vintage graphic tee under $30, size M' --trace
+[1] search_listings (via MCP)
+      in:  {'description': 'vintage graphic tee', 'size': 'M', 'max_price': 30.0}
+      out: 8 items: Y2K Baby Tee — Butterfly Print, Mesh Long-Sleeve Top — Black, 90s Silk Slip Dress — Floral, Midi Length … +5 more
+[2] select item
+      out: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+      →    took the first result
+[3] suggest_outfit
+      in:  item='Y2K Baby Tee — Butterfly Print', wardrobe items=10
+      out: **Outfit 1:** - Y2K Baby Tee — Butterfly Print - Baggy straight-leg jeans - Chunkywhite sneakers - Black cros…
+[4] create_fit_card
+      in:  item='Y2K Baby Tee — Butterfly Print', outfit='**Outfit 1:**\n- Y2K Baby Tee — Butterfly'...
+      out: Just scored this Y2K baby tee with the cutest butterfly print on depop for only $18.00! It’s giving major stre…
 ```
 
 **Empty search**
 
 ```
+$ python app.py ask 'ski jacket under $5' --trace
+[1] search_listings (via MCP)
+      in:  {'description': 'ski jacket', 'size': None, 'max_price': 5.0}
+      out: [] (empty)
+[2] branch
+      →    search came back empty, stopping
 
+  No listings matched 'ski jacket'. Try one of these: raise your price limit (currently $5); use fewer or simpler keywords (for example 'tee' instead of a long description).
 ```
 
-**On the MCP move:** <!-- what changed in your code, and whether anything
-behaved differently afterwards. If the rewire didn't work, say exactly where it
-broke — the error text and the last thing that worked. That earns the point in
-full. -->
+The empty trace has 2 steps and the happy path has 4, so the branch is stopping the loop before `suggest_outfit`.
+
+**On the MCP move:** I registered `search_listings` in `mcp_server.py` with its typed inputs (`description`, `size`, `max_price`) and a one-sentence description, and changed the search step in `agent.py::run_agent` to call it with `call_tool("search_listings", {...})` instead of calling the function directly. The call changes shape but the result is the same: the happy path still returns the same Y2K baby tee, and the empty search still comes back as `[]`, so the branch still runs. Model behavior left unchanged.
 
 
 

@@ -127,37 +127,71 @@ def run_agent(query: str, wardrobe: dict) -> dict:
             # Run the search and save the results in the session.
             # This call now goes through MCP (mcp_server.py) instead of calling
             # the function directly. What comes back is the same list of dicts.
-            session["search_results"] = call_tool("search_listings", {
+            search_inputs = {
                 "description": parsed["description"],
                 "size": parsed["size"],
                 "max_price": parsed["max_price"],
-            })
+            }
+            session["search_results"] = call_tool("search_listings", search_inputs)
+            trace.step("search_listings (via MCP)", inputs=str(search_inputs),
+                       returned=session["search_results"])
 
             # ── THE BRANCH ──────────────────────────────────────────────
             # Nothing came back: say what to change, and stop here.
             # suggest_outfit is never called with nothing.
             if len(session["search_results"]) == 0:
                 session["error"] = no_results_message(parsed)
+                trace.step("branch", note="search came back empty, stopping")
                 next_step = "done"
             else:
                 # Something came back: pick the first result, go to outfit.
                 session["selected_item"] = session["search_results"][0]
+                trace.step("select item", returned=session["selected_item"],
+                           note="took the first result")
                 next_step = "outfit"
 
         elif next_step == "outfit":
             # Read the item back OUT of the session (not from a local variable).
-            session["outfit_suggestion"] = suggest_outfit(
-                session["selected_item"], session["wardrobe"]
-            )
+            try:
+                session["outfit_suggestion"] = suggest_outfit(
+                    session["selected_item"], session["wardrobe"]
+                )
+            except ModelUnavailable as exc:
+                session["error"] = model_unavailable_message(exc)
+                trace.step("suggest_outfit", note="model unavailable, stopping")
+                break
+            trace.step("suggest_outfit",
+                       inputs=f"item={session['selected_item']['title']!r}, "
+                              f"wardrobe items={len(session['wardrobe'].get('items', []))}",
+                       returned=session["outfit_suggestion"])
             next_step = "fit_card"
 
         elif next_step == "fit_card":
-            session["fit_card"] = create_fit_card(
-                session["outfit_suggestion"], session["selected_item"]
-            )
+            try:
+                session["fit_card"] = create_fit_card(
+                    session["outfit_suggestion"], session["selected_item"]
+                )
+            except ModelUnavailable as exc:
+                session["error"] = model_unavailable_message(exc)
+                trace.step("create_fit_card", note="model unavailable, stopping")
+                break
+            trace.step("create_fit_card",
+                       inputs=f"item={session['selected_item']['title']!r}, "
+                              f"outfit={session['outfit_suggestion'][:40]!r}...",
+                       returned=session["fit_card"])
             next_step = "done"
 
     return session
+
+
+def model_unavailable_message(exc: Exception) -> str:
+    """A message for when the model can't be reached."""
+    return (
+        "The model couldn't be reached, so no outfit or fit card was made. "
+        "Wait a minute and try again. If it keeps happening, check that "
+        "GEMINI_API_KEY in your .env file is correct and that you're online. "
+        f"(Details: {exc})"
+    )
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
