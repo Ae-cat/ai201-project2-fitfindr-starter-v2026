@@ -204,17 +204,80 @@ Note: with the cache on, three runs of the fit card printed word-for-word identi
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. A matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. An impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. Selected item is the item passed to suggest_outfit | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. Fit card has item, price, platform, and a style word | 4 of 5 | PASS | PASS | FAIL | PASS | PASS | MET (4/5) |
+| 5. Outfit pairs the item with a different category | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 
 **Real output from one try**, pasted as text, naming the file and function
 that produced it:
 
+**Criterion 1, try 1** — produced by `agent.py::run_agent` (the loop), with the tools in `tools.py`:
+
+```
+Query: vintage graphic tee under $30   (example wardrobe)
+[1] search_listings (via MCP)
+      in:  {'description': 'vintage graphic tee', 'size': None, 'max_price': 30.0}
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey … +7 more
+[2] select item
+      out: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+      →    took the first result
+[3] suggest_outfit
+      in:  item='Y2K Baby Tee — Butterfly Print', wardrobe items=10
+[4] create_fit_card
+      out: Found this absolute dream of a Y2K baby tee on Depop for just $18! The butterfly print gives off the ultimate streetwear energy, and I'm already planning to style it with baggy jeans or wide-leg trousers. Such a good score!
 ```
 
+**Criterion 2, try 1** — produced by `agent.py::run_agent` (the branch) and `agent.py::no_results_message`:
+
+```
+Query: designer ballgown size XXS under $5
+[1] search_listings (via MCP)
+      in:  {'description': 'designer ballgown', 'size': 'XXS', 'max_price': 5.0}
+      out: [] (empty)
+[2] branch
+      →    search came back empty, stopping
+stopped early: yes — No listings matched 'designer ballgown'. Try one of these: raise your price limit (currently $5); remove the size filter (currently size XXS); use fewer or simpler keywords (for example 'tee' instead of a long description).
+```
+
+**Criterion 3, try 1** — produced by `agent.py::run_agent` (the session handoff):
+
+```
+Query: vintage graphic tee under $30, size M
+[2] select item
+      out: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+      →    took the first result
+[3] suggest_outfit
+      in:  item='Y2K Baby Tee — Butterfly Print', wardrobe items=10
+```
+
+**Criterion 4, try 1 (PASS)** — produced by `tools.py::create_fit_card`:
+
+```
+Just scored this butterfly print Y2K baby tee on depop for only $18.00 and I am obsessed! It has the ultimate vintage vibe and I can already picture it styled with baggy dark wash jeans or wide-leg khaki trousers.
+```
+
+**Criterion 4, try 3 (FAIL)** — produced by `agent.py::run_agent` (the model-unavailable handler):
+
+```
+stopped early: yes — The model couldn't be reached, so no outfit or fit card was made. Wait a minute and try again. If it keeps happening, check that GEMINI_API_KEY in your .env file is correct and that you're online. (Details: Couldn't reach the model: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}})
+```
+
+**Criterion 5, try 1** — produced by `tools.py::suggest_outfit`:
+
+```
+**Outfit 1:**
+- Y2K Baby Tee — Butterfly Print
+- Baggy straight-leg jeans
+- Chunky white sneakers
+- Black crossbody bag
+
+**Outfit 2:**
+- Y2K Baby Tee — Butterfly Print
+- Wide-leg khaki trousers
+- Black combat boots
+- Brown leather belt
 ```
 
 ---
