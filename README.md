@@ -302,13 +302,21 @@ stopped early: yes — The model couldn't be reached, so no outfit or fit card w
 
 | # | Criterion | Target | Verdict | How I decided |
 |---|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-| 4 |  |  |  |  |
-| 5 |  |  |  |  |
+| 1 | A matching query completes all three tools | 4 of 5 | MET | All 5 tries completed all three tools and returned a fit card (5/5). The query used for this scenario did not include `size M`. |
+| 2 | An impossible query stops before the second tool | 5 of 5 | MET | All 5 tries stopped after the empty search (2 trace steps, `suggest_outfit` never called) and the message named the price, size, and keywords (5/5). |
+| 3 | Selected item is the item passed to `suggest_outfit` | 5 of 5 | MET | In all 5 tries the item selected (Y2K Baby Tee — Butterfly Print) was the item shown going into `suggest_outfit` in the trace (5/5). I compared titles, not ids, but titles are unique in the data. |
+| 4 | Fit card has item, price, platform, and a style word | 4 of 5 | MET | 4 of 5 tries had all four, in 2 to 4 sentences. Try 3 produced no fit card, so I counted it as a FAIL (4/5), which still holds the target. |
+| 5 | Outfit pairs the item with a different category | 4 of 5 | MET | In all 5 tries the tee was paired with a bottom (jeans or trousers) plus shoes or outerwear (5/5). |
+
+All five criteria were met. The one failing try is criterion 4, try 3.
 
 **Diagnoses**
+
+**Criterion 4, try 3 (the one failing try).** The step was the model call in `suggest_outfit`. The model service answered `503 UNAVAILABLE` ("high demand") and the agent stopped before it ever reached `create_fit_card`, so there was no fit card to check. My code and the loop's branch worked: the `ModelUnavailable` handler in `agent.py::run_agent` caught the error and showed a clean message. The mechanism is in `generate.py::generate`: it only retries when an error looks like a rate limit (a 429 or "rate limit" text). A 503 does not match, so a temporary blip is turned straight into `ModelUnavailable` with no retry. The same 503 hit the diagnostic empty-wardrobe scenario on its try 4, so it is a pattern (2 of 48 model calls), not a one-off. The message that was shown also tells the user to check their API key, which is the wrong advice for a 503. 
+
+Overall, criterion 4's try 3 failed, yet the agent did not crash: the ModelUnavailable handler caught the error, stopped the process, and returned a message to the user. This means that the failure was in the model service, not in my loop.
+
+**Were my targets too easy?** Nothing was missed, so honestly yes, for two criteria. Criterion 5 passed 5 of 5 against a target of 4, partly because my `suggest_outfit` prompt itself tells the model to pair with a different category, so the test is close to checking that the instruction was followed. Criterion 1 passed 5 of 5 against a target of 4 using one easy query, but it never tested my search quality: `'corduroy jacket under $50'` returned a track jacket first and `'leather boots under $60'` returned Mary Janes first, because the keyword match ranks other words highly. If I tightened one criterion, it would be criterion 1, to require that the top result actually match the item the user asked for.
 
 
 
