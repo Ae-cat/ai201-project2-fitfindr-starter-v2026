@@ -188,9 +188,9 @@ def model_unavailable_message(exc: Exception) -> str:
     """A message for when the model can't be reached."""
     return (
         "The model couldn't be reached, so no outfit or fit card was made. "
-        "Wait a minute and try again. If it keeps happening, check that "
-        "GEMINI_API_KEY in your .env file is correct and that you're online. "
-        f"(Details: {exc})"
+        f"{exc} "
+        "If it keeps happening, check that GEMINI_API_KEY in your .env file "
+        "is correct and that you're online."
     )
 
 

@@ -328,7 +328,10 @@ def generate(
                 or "resource" in message and "exhaust" in message
                 or "rate" in message and "limit" in message
             )
-            if not rate_limited:
+            # A 503 means the service is temporarily busy. It usually clears
+            # in seconds, so retry it instead of giving up.
+            service_busy = "503" in message or "unavailable" in message
+            if not (rate_limited or service_busy):
                 raise ModelUnavailable(_explain(exc)) from exc
             backoff = _retry_delay(exc, attempt)
             print(
@@ -339,6 +342,17 @@ def generate(
                 flush=True,
             )
             time.sleep(backoff)
+
+    # Still failing after every retry. If it was a busy service, say so as a
+    # ModelUnavailable so the agent can show a readable message, not a crash.
+    if last_error is not None and (
+        "503" in str(last_error) or "unavailable" in str(last_error).lower()
+    ):
+        raise ModelUnavailable(
+            f"The model service was busy and still unavailable after "
+            f"{config.MAX_RETRIES} tries. Your key is fine. Wait a minute and "
+            f"try again."
+        ) from last_error
 
     raise RuntimeError(
         f"Still rate limited after {config.MAX_RETRIES} attempts. Wait a "
