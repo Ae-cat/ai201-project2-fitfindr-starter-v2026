@@ -380,22 +380,23 @@ The empty trace has 2 steps and the happy path has 4, so the branch is stopping 
 
      `python run_eval.py --label after` -->
 
-**What I changed:**
+**What I changed:** In `generate.py::generate`, a `503 UNAVAILABLE` error from the model service is now retried (wait, then try again, up to `MAX_RETRIES`) the same way a rate limit already was. If it is still failing after every retry, it now raises `ModelUnavailable` with a readable message instead of ending in an uncaught `RuntimeError`. I also changed `agent.py::model_unavailable_message` so it shows the specific reason from the error and no longer leads with "check your API key". This is one fix: handling a temporary service error properly.
 
-**Which failure it was meant to fix:**
+**Which failure it was meant to fix:** Criterion 4, try 3 in the before run, where the model service returned `503 UNAVAILABLE` at `suggest_outfit`. `generate.py` only retried rate limits, so a temporary busy signal ended the run with no fit card. The same 503 also hit the diagnostic empty-wardrobe scenario on its try 4.
 
 ### Run Log — After
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. A matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. An impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. Selected item is the item passed to suggest_outfit | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. Fit card has item, price, platform, and a style word | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. Outfit pairs the item with a different category | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 
-**Did it help, and how do I know:**
+Saved in `results/run_2026-10-11_1633_after.md` (before run: `results/run_2026-10-07_1654_before.md`).
 
+**Did it help, and how do I know:** Criterion 4 went from 4 of 5 to 5 of 5, and the diagnostic empty-wardrobe scenario went from one stopped try to five completed ones. But I can't say the fix is what caused it. No 503 happened during the after run (the trace shows no "service pushed back" line, only the normal pacing waits), so the new retry code was never exercised. The better result most likely comes from the service being less busy this time. To summarize, the change is in place and nothing broke, but this run did not test it. The previous issue seems to have been due to heavy traffic on the model service and not a bug.
 <!-- If it made things worse, say that. Honestly reported, that earns full
      credit and is more interesting than one that worked. -->
 
