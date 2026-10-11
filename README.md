@@ -184,6 +184,18 @@ Note: with the cache on, three runs of the fit card printed word-for-word identi
 - *What came back:* It gave me three brand-new criteria instead of feedback on mine. I then asked, "from the criterion I have written what can I improve. Do not change my base idea but provide bullet point inputs," and it suggested clearer wording and examples to support my reasoning.
 - *What I changed:* I kept my own criteria and applied the suggestions to the wording, for example adding that a dress counts as a full outfit and does not need pairing in criterion 5.
 
+**Moment 3: the retry change in generate.py (Unit 4)**
+
+- *What I asked for:* One of my fit-card tries failed with a `503 UNAVAILABLE` error even though the same query had passed before, and I was unsure how that was caused. I asked Claude what my diagnosis pointed to and what to change for Milestone 5.
+- *What came back:* Claude explained that `generate.py` only retried rate-limit errors, so a temporary 503 was turned straight into "model unavailable" with no retry. It suggested retrying on 503 and changing the error message.
+- *What I changed:* I used the suggested change in `generate.py` (retry on 503, then a readable `ModelUnavailable` message) and the clearer message in `agent.py`. When I re-ran the test, no 503 happened, so the change had no notable effect on the results. The failure was most likely caused by traffic on the model service during that run.
+
+**Moment 4: checking for problems my tests did not catch (Unit 4)**
+
+- *What I asked for:* After the after run, I saw that all five criteria were met and told Claude it looked like nothing was broken. I wanted to know whether a problem could have passed through without being identified, since the criteria only test what I wrote them to test.
+- *What came back:* Claude did not just agree. It went back through my own runs and listed weaknesses my criteria never tested: the search returned the wrong item first for `'corduroy jacket under $50'` and `'leather boots under $60'`, the retry fix was never exercised because no 503 happened, a size like `US 9` is parsed incorrectly, and a few of my tests were soft (scenario 1 had no `size M`, criterion 3 compared titles instead of ids, criterion 5 was partly built into the prompt).
+- *What I changed:* I added those items to What's Still Broken instead of writing that nothing was left, and I noted the main one (search ranking) as what I would fix next and why I did not fix it in this unit.
+
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
      Don't fill these in during unit 3.
@@ -409,6 +421,13 @@ Saved in `results/run_2026-10-11_1633_after.md` (before run: `results/run_2026-1
 <!-- For each criterion still missed: what you'd do, and why you stopped where
      you did. "I ran out of time" is fine if it's true. Pretending nothing is
      left is not. -->
+
+No criterion is still missed: all five were met in the after run. That does not mean nothing is left, because my targets were easy and a few weaknesses were never tested:
+
+- **Search ranking (criterion 1).** The search is a plain keyword match, so the first result is not always the item the user asked for. `'corduroy jacket under $50'` returned a track jacket first, and `'leather boots under $60'` returned platform Mary Janes first. Criterion 1 only checks that the agent completes all three tools, so it passed anyway. What I would do: weight title matches more than description matches, and tighten criterion 1 to require that the top result matches the main item word. I stopped because it is a bigger change than one fix and my diagnosis did not name it.
+- **The retry fix was never exercised.** No 503 happened in the after run, so I cannot say the retry in `generate.py` works. What I would do: force a 503 (for example by temporarily raising a fake 503 error inside `generate`) and confirm it retries. I stopped because I ran out of time.
+- **Query parsing.** A size such as `US 9` is parsed as size `US` with a leftover `9` in the description. Plain sizes like `M` and `XL` work.
+- **Test coverage.** Criterion 1's scenario ran `vintage graphic tee under $30` without `size M`. Criterion 3 was checked by item title, not by `id`. Criterion 5 passed 5 of 5 partly because my `suggest_outfit` prompt tells the model to pair with a different category.
 
 
 
